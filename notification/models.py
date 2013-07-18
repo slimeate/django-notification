@@ -1,4 +1,5 @@
 import datetime
+from django.utils.timezone import utc
 
 try:
     import cPickle as pickle
@@ -25,6 +26,8 @@ from django.contrib.contenttypes import generic
 from django.utils.translation import ugettext_lazy as _
 from django.utils.translation import ugettext, get_language, activate
 
+def now():
+    return datetime.datetime.utcnow().replace(tzinfo=utc)
 
 QUEUE_ALL = getattr(settings, "NOTIFICATION_QUEUE_ALL", False)
 
@@ -122,12 +125,19 @@ class Notice(models.Model):
     user = models.ForeignKey(User, verbose_name=_('user'))
     message = models.TextField(_('message'))
     notice_type = models.ForeignKey(NoticeType, verbose_name=_('notice type'))
-    added = models.DateTimeField(_('added'), default=datetime.datetime.now)
+    added = models.DateTimeField(_('added'), null=True, blank=True, default=None)
     unseen = models.BooleanField(_('unseen'), default=True)
     archived = models.BooleanField(_('archived'), default=False)
     on_site = models.BooleanField(_('on site'))
 
     objects = NoticeManager()
+
+    def save(self, *args, **kwargs):
+        insert = not self.pk
+	if insert and not self.added:
+                self.added = now()
+        ret = super(Notice, self).save(*args, **kwargs)
+        return ret
 
     def __unicode__(self):
         return self.message
@@ -379,12 +389,19 @@ class ObservedItem(models.Model):
 
     notice_type = models.ForeignKey(NoticeType, verbose_name=_('notice type'))
 
-    added = models.DateTimeField(_('added'), default=datetime.datetime.now)
+    added = models.DateTimeField(_('added'), null=True, blank=True, default=None)
 
     # the signal that will be listened to send the notice
     signal = models.TextField(verbose_name=_('signal'))
 
     objects = ObservedItemManager()
+
+    def save(self, *args, **kwargs):
+        insert = not self.pk
+	if insert and not self.added:
+                self.added = now()
+        ret = super(ObservedItem, self).save(*args, **kwargs)
+        return ret
 
     class Meta:
         ordering = ['-added']
