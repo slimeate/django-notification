@@ -1,6 +1,7 @@
+from django.views.generic.base import View
 from django.core.urlresolvers import reverse
 from django.shortcuts import render_to_response, get_object_or_404
-from django.http import HttpResponseRedirect, Http404
+from django.http import HttpResponse, HttpResponseRedirect, Http404
 from django.template import RequestContext
 from django.contrib.auth.decorators import login_required
 
@@ -9,9 +10,7 @@ from notification.models import *
 from notification.decorators import basic_auth_required, simple_basic_auth_callback
 
 @login_required
-def notices(request):
-    notice_types = NoticeType.objects.all()
-    notices = Notice.objects.notices_for(request.user, on_site=True)
+def settings(request):
     settings_table = []
     for notice_type in NoticeType.objects.all():
         settings_row = []
@@ -31,11 +30,40 @@ def notices(request):
         "column_headers": [medium_display for medium_id, medium_display in NOTICE_MEDIA],
         "rows": settings_table,
     }
+
+class Notices(View):
+    template_name = 'notification/notices.html'
+    
+    def get_context_data(self, request, *args, **kwargs):
+        notice_types = NoticeType.objects.all()
+        notices = Notice.objects.notices_for(request.user, on_site=True)
+        
+        return {
+            'notices': notices,
+            'notice_types':notice_types
+            }
+
+    def get_sync(self, request, *args, **kwargs):
+        ctx = self.get_context_data(request, *args, **kwargs)
+        return render_to_response(self.template_name, ctx, context_instance=RequestContext(request))
+
+    def get_ajax(self, request, *args, **kwargs):
+        ctx = self.get_context_data(request, *args, **kwargs)
+        return HttpResponse(simplejson.dumps(ctx), mimetype='application/json')
+
+    def get(self, request, *args, **kwargs):
+        if request.is_ajax():
+            return self.get_ajax(request, args, kwargs)
+        return self.get_sync(request, args, kwargs)
+
+@login_required
+def notices(request):
+    notice_types = NoticeType.objects.all()
+    notices = Notice.objects.notices_for(request.user, on_site=True)
     
     return render_to_response("notification/notices.html", {
         "notices": notices,
         "notice_types": notice_types,
-        "notice_settings": notice_settings,
     }, context_instance=RequestContext(request))
 
 @login_required
