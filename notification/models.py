@@ -36,7 +36,7 @@ class LanguageStoreNotAvailable(Exception):
 
 class NoticeType(models.Model):
 
-    label = models.CharField(_('label'), max_length=40)
+    label = models.CharField(_('label'), max_length=40, unique=True)
     display = models.CharField(_('display'), max_length=50)
     description = models.CharField(_('description'), max_length=100)
 
@@ -49,6 +49,34 @@ class NoticeType(models.Model):
     class Meta:
         verbose_name = _("notice type")
         verbose_name_plural = _("notice types")
+
+    @classmethod
+    def create(cls, label, display, description, default=2, verbosity=1):
+        """
+        Creates a new NoticeType.
+        
+        This is intended to be used by other apps as a post_syncdb manangement step.
+        """
+        try:
+            notice_type = cls._default_manager.get(label=label)
+            updated = False
+            if display != notice_type.display:
+                notice_type.display = display
+                updated = True
+                if description != notice_type.description:
+                    notice_type.description = description
+                    updated = True
+                if default != notice_type.default:
+                    notice_type.default = default
+                    updated = True
+                if updated:
+                    notice_type.save()
+                    if verbosity > 1:
+                        print "Updated %s NoticeType" % label
+        except cls.DoesNotExist:
+            cls(label=label, display=display, description=description, default=default).save()
+            if verbosity > 1:
+                print "Created %s NoticeType" % label
 
 
 # if this gets updated, the create() method below needs to be as well...
