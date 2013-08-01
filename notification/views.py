@@ -4,6 +4,7 @@ from django.shortcuts import render_to_response, get_object_or_404
 from django.http import HttpResponse, HttpResponseRedirect, Http404
 from django.template import RequestContext
 from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
 
 
 from notification.models import *
@@ -51,10 +52,27 @@ class Notices(View):
         ctx = self.get_context_data(request, *args, **kwargs)
         return HttpResponse(simplejson.dumps(ctx), mimetype='application/json')
 
+    @method_decorator(login_required)
     def get(self, request, *args, **kwargs):
         if request.is_ajax():
             return self.get_ajax(request, args, kwargs)
         return self.get_sync(request, args, kwargs)
+
+
+class NoticeCount(View):
+    def get_context_data(self, request, *args, **kwargs):
+        return {
+            'notice_unseen_count': Notice.objects.unseen_count_for(request.user, on_site=True)
+            }
+
+    @method_decorator(login_required)
+    def get(self, request, *args, **kwargs):
+        ctx = self.get_context_data(request, *args, **kwargs)
+        if request.is_ajax():
+            return HttpResponse(simplejson.dumps(ctx), mimetype='application/json')
+        else:
+            return HttpResponse(ctx['notice_unseen_count'])
+
 
 @login_required
 def notices(request):
